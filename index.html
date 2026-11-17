@@ -163,6 +163,12 @@ button.secondary{background:#fff;color:#087a55;border-color:#b8dfe4}
 <div class="actions"><button onclick="addCustomer()">Add customer</button></div>
 </div>
 <div class="panel"><h2>Customer list</h2><p class="note">WhatsApp / SMS મેસેજ, Customer details અને delivery history અહીં મળશે. Customer edit/delete માત્ર Admin કરી શકશે.</p><div id="cl" class="empty">No customers yet.</div></div><div class="panel hidden" id="customerDetails"><h2 id="customerDetailsTitle">Customer details</h2><div id="customerDetailsBody"></div><div class="actions"><button class="secondary" onclick="closeCustomerDetails()">Close details</button></div></div>
+<div class="panel">
+<h2>Monthly customer billing</h2>
+<p class="note">Month-end account • 20L can rate: ₹20 • Bill is calculated from delivery records. Any payment recorded during delivery is counted as already paid.</p>
+<div class="grid"><div><label>Select billing month</label><input id="billMonth" type="month" onchange="renderMonthlyBilling()"></div></div>
+<div id="monthlyBillingList" class="empty">Select a month to view customer bills.</div>
+</div>
 </section>
 
 <section id="delivery" class="view hidden">
@@ -296,6 +302,7 @@ const K='baneshwary_stock_v1';
 let D=JSON.parse(localStorage.getItem(K)||'null')||{of:0,oe:0,af:0,ae:0,del:0,ret:0,customers:[],deliveries:[]};
 if(!Array.isArray(D.customers))D.customers=[];
 if(!Array.isArray(D.deliveries))D.deliveries=[];
+if(!Array.isArray(D.monthlyPayments))D.monthlyPayments=[];
 if(!D.attendance||typeof D.attendance!=='object')D.attendance={};
 if(!Array.isArray(D.boyStock))D.boyStock=[];
 if(!D.orderStock)D.orderStock={s10:0,s20:0,sBag:0,d10:0,d20:0,dBag:0,empty10:0,empty20:0};
@@ -313,6 +320,7 @@ $('login').classList.add('hidden');
 $('app').classList.remove('hidden');
 $('welcome').textContent='Hello, '+currentRole;
 $('today').textContent='Today: '+new Date().toLocaleDateString('en-IN');
+$('billMonth').value=localMonthKey();
 $('attDate').value=localDateKey();
 $('boyStockDate').value=localDateKey();
 $('orderDate').value=localDateKey();
@@ -606,6 +614,87 @@ rec.closedAt=new Date().toLocaleString('en-IN');rec.closedBy=currentRole;
 save();loadBoyStock();alert('Evening stock closing saved');
 }
 
+function localMonthKey(){let d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+function deliveryMonth(dateText){let m=String(dateText||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(!m)return '';return m[3]+'-'+String(m[2]).padStart(2,'0')}
+function monthBillFor(c,month){
+let history=D.deliveries.filter(x=>(x.customerId!=null?Number(x.customerId)===Number(c.id):x.n===c.n)&&deliveryMonth(x.date)===month);
+let cans=history.reduce((a,x)=>a+Number(x.f||0),0);
+let deliveryPaid=history.reduce((a,x)=>a+Number(x.p||0),0);
+let extraPaid=D.monthlyPayments.filter(x=>Number(x.customerId)===Number(c.id)&&x.month===month).reduce((a,x)=>a+Number(x.amount||0),0);
+let bill=cans*20,paid=deliveryPaid+extraPaid;
+return {cans,bill,paid,balance:bill-paid,history};
+}
+function recordMonthlyPayment(customerId){
+if(currentRole!=='Admin')return alert('Only Admin can record monthly payments');
+let month=$('billMonth').value||localMonthKey();
+let c=D.customers.find(x=>Number(x.id)===Number(customerId));if(!c)return alert('Customer not found');
+let b=monthBillFor(c,month);
+let amount=prompt('Payment received from '+c.n+' for '+month+' (₹). Current balance: ₹'+b.balance,'');
+if(amount===null)return;amount=Number(amount);
+if(!Number.isFinite(amount)||amount<=0)return alert('Enter a valid payment amount');
+D.monthlyPayments.push({id:Date.now(),customerId:c.id,customerName:c.n,month,amount,date:new Date().toLocaleString('en-IN'),by:currentRole});
+save();renderMonthlyBilling();alert('Monthly payment saved');
+}
+function renderMonthlyBilling(){
+let el=$('monthlyBillingList');if(!el)return;
+let month=$('billMonth').value||localMonthKey();
+if(!$('billMonth').value)$('billMonth').value=month;
+if(!D.customers.length){el.innerHTML='<div class="empty">No customers added yet.</div>';return}
+let rows=D.customers.map(c=>({c,...monthBillFor(c,month)}));
+let totalBill=rows.reduce((a,x)=>a+x.bill,0),totalPaid=rows.reduce((a,x)=>a+x.paid,0),totalDue=rows.reduce((a,x)=>a+x.balance,0);
+el.innerHTML='<div class="cards"><div class="card"><div class="k">Total bill</div><div class="metric">₹'+totalBill+'</div></div><div class="card"><div class="k">Received</div><div class="metric">₹'+totalPaid+'</div></div><div class="card"><div class="k">Balance due</div><div class="metric">₹'+totalDue+'</div></div></div><div class="table-wrap"><table><tr><th>Customer</th><th>20L cans</th><th>Bill</th><th>Paid</th><th>Due</th><th>Action</th></tr>'+rows.map(x=>'<tr><td>'+esc(x.c.n)+'</td><td>'+x.cans+'</td><td>₹'+x.bill+'</td><td>₹'+x.paid+'</td><td><b>₹'+x.balance+'</b></td><td>'+(currentRole==='Admin'?'<div class="row-actions"><button class="tiny" onclick="recordMonthlyPayment('+Number(x.c.id)+')">Add payment</button><button class="tiny secondary" onclick="generateMonthlyBill('+Number(x.c.id)+')">Bill + WhatsApp</button></div>':'<span class="note">View only</span>')+'</td></tr>').join('')+'</table></div><p class="note">Payments entered in the delivery form are included automatically. Add payment is for extra/month-end payments. If a customer has paid more than the bill, the balance may show a negative amount (advance).</p><div class="actions"><button class="secondary" onclick="monthlyBillCSV()">Download monthly report</button></div>';
+}
+async function generateMonthlyBill(customerId){
+ const c=D.customers.find(x=>Number(x.id)===Number(customerId));
+ if(!c)return alert('Customer not found');
+ const month=$('billMonth').value||localMonthKey();
+ const x=monthBillFor(c,month);
+ const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=1600;
+ const ctx=canvas.getContext('2d');
+ ctx.fillStyle='#f7fffb';ctx.fillRect(0,0,1200,1600);
+ ctx.fillStyle='#087a45';ctx.fillRect(0,0,1200,300);
+ ctx.fillStyle='#ffffff';ctx.font='bold 54px Arial';ctx.fillText('BANESHWARY',300,105);
+ ctx.font='34px Arial';ctx.fillText('Beverages',305,155);
+ ctx.font='28px Arial';ctx.fillText('20 Litre Mineral Water',305,215);
+ const logo=document.querySelector('#splash img');
+ if(logo){try{ctx.drawImage(logo,55,45,190,205)}catch(e){}}
+ ctx.fillStyle='#dff7e9';ctx.fillRect(0,300,1200,105);
+ ctx.fillStyle='#075c38';ctx.font='bold 42px Arial';ctx.fillText('MONTHLY BILL / માસિક બિલ',75,370);
+ ctx.fillStyle='#18352b';ctx.font='30px Arial';
+ ctx.fillText('Customer: '+String(c.n||''),70,490);
+ ctx.fillText('Area: '+String(c.a||'-'),70,550);
+ ctx.fillText('Month: '+month,70,610);
+ ctx.fillText('Bill date: '+new Date().toLocaleDateString('en-IN'),700,610);
+ ctx.fillStyle='#087a45';ctx.fillRect(55,690,1090,85);
+ ctx.fillStyle='#ffffff';ctx.font='bold 30px Arial';ctx.fillText('Description',85,745);ctx.fillText('Qty',640,745);ctx.fillText('Rate',790,745);ctx.fillText('Amount',950,745);
+ ctx.fillStyle='#ffffff';ctx.fillRect(55,775,1090,105);ctx.strokeStyle='#087a45';ctx.lineWidth=3;ctx.strokeRect(55,775,1090,105);
+ ctx.fillStyle='#18352b';ctx.font='28px Arial';ctx.fillText('20 Litre Water Can',85,840);ctx.fillText(String(x.cans),660,840);ctx.fillText('Rs. 20',790,840);ctx.fillText('Rs. '+x.bill,950,840);
+ const summary=[['Total bill / કુલ બિલ','Rs. '+x.bill],['Paid / ચૂકવેલ','Rs. '+x.paid],['Balance due / બાકી','Rs. '+x.balance]];
+ let yy=970;summary.forEach((r,i)=>{ctx.fillStyle=i===2?'#087a45':'#e4f6eb';ctx.fillRect(420,yy,725,90);ctx.fillStyle=i===2?'#ffffff':'#18352b';ctx.font='bold 30px Arial';ctx.fillText(r[0],455,yy+57);ctx.fillText(r[1],900,yy+57);yy+=95});
+ ctx.fillStyle='#087a45';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText('આપના અમૂલ્ય સહયોગ બદલ આભાર 🙏',600,1375);
+ ctx.font='24px Arial';ctx.fillText('BANESHWARY BEVERAGES • Dantiwada',600,1440);
+ ctx.textAlign='left';
+ const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+ if(!blob)return alert('Bill image could not be created. Please try again.');
+ const safeName=String(c.n||'customer').replace(/[^a-z0-9 Gujarati_-]/gi,'_');
+ const file=new File([blob],'Baneshwary-Bill-'+safeName+'-'+month+'.png',{type:'image/png'});
+ const phone=String(c.p||'').replace(/\D/g,'');
+ const message='નમસ્તે '+c.n+' 🙏\nઆપનું '+month+' મહિનાનું BANESHWARY BEVERAGES બિલ મોકલ્યું છે.\nકુલ કેન: '+x.cans+'\nકુલ બિલ: ₹'+x.bill+'\nચૂકવેલ: ₹'+x.paid+'\nબાકી: ₹'+x.balance+'\nઆભાર!';
+ if(navigator.canShare&&navigator.canShare({files:[file]})){
+   try{await navigator.share({files:[file],title:'BANESHWARY Monthly Bill',text:message});return}catch(err){if(err&&err.name==='AbortError')return;}
+ }
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
+ const wa='https://wa.me/'+(phone.length===10?'91'+phone:phone)+'?text='+encodeURIComponent(message);
+ if(phone)window.open(wa,'_blank');
+ alert('Bill image downloaded. WhatsApp will open with the message. Attach the downloaded bill image before sending.');
+}
+
+function monthlyBillCSV(){
+let month=$('billMonth').value||localMonthKey();let rows=[['Month','Customer','20L cans','Bill ₹','Paid ₹','Balance ₹']];
+D.customers.forEach(c=>{let x=monthBillFor(c,month);rows.push([month,c.n,x.cans,x.bill,x.paid,x.balance])});
+let csvText=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csvText],{type:'text/csv'}));a.download='baneshwary-monthly-bill-'+month+'.csv';a.click();URL.revokeObjectURL(a.href);
+}
+
 function render(){
 let today=new Date().toLocaleDateString('en-IN');
 $('fm').textContent=full();
@@ -627,6 +716,7 @@ return `<tr><td>${esc(x.date)}</td><td>${esc(x.n)}</td><td>${Number(x.f||0)}</td
 $('rs').innerHTML=`<p>Opening full cans: <b>${Number(D.of||0)}</b></p><p>Added / produced: <b>${Number(D.af||0)}</b></p><p>Delivered: <b>${Number(D.del||0)}</b></p><p>Current full cans: <b>${full()}</b></p><p>Current empty cans: <b>${empty()}</b></p><p>Payments recorded: <b>₹${D.deliveries.reduce((a,x)=>a+Number(x.p||0),0)}</b></p>`;
 if($('attDate'))renderAttendance();
 if($('orderCustomer'))renderOrders();
+if($('monthlyBillingList'))renderMonthlyBilling();
 }
 function csv(){
 let rows=[['Date','Customer','Full cans','Empty returned','Delivery boy','Payment'],...D.deliveries.map(x=>[x.date,x.n,x.f,x.e,x.b,x.p])];
