@@ -78,6 +78,7 @@ th{font-size:11px;color:var(--m)}
 <button onclick="tab('customers',this)">Customers</button>
 <button onclick="tab('delivery',this)">Delivery</button>
 <button onclick="tab('attendance',this)">Attendance</button>
+<button onclick="tab('boyStock',this)">Boy Stock</button>
 <button onclick="tab('reports',this)">Reports</button>
 </nav>
 
@@ -163,6 +164,51 @@ th{font-size:11px;color:var(--m)}
 </div>
 </section>
 
+
+<section id="boyStock" class="view hidden">
+<div class="panel">
+<h2>Delivery Boy Daily Stock</h2>
+<p class="note">Morning stock issue અને સાંજનો closing હિસાબ. દરેક Boy પોતાનો closing હિસાબ ભરી શકે છે; Admin બધા Boys નો હિસાબ જોઈ શકે છે.</p>
+<label>Date</label><input id="boyStockDate" type="date" onchange="loadBoyStock()">
+<label>Delivery Boy</label>
+<select id="boyStockBoy" onchange="loadBoyStock()">
+<option>Delivery Boy 1</option><option>Delivery Boy 2</option><option>Delivery Boy 3</option><option>Delivery Boy 4</option>
+</select>
+<div id="boyStockMorning" class="panel">
+<h3>Morning Stock Issue (Admin)</h3>
+<div class="grid">
+<div><label>10L can full issued</label><input id="issue10" type="number" min="0" value="0"></div>
+<div><label>20L can full issued</label><input id="issue20" type="number" min="0" value="0"></div>
+<div><label>20L water bag issued</label><input id="issueBag" type="number" min="0" value="0"></div>
+</div>
+<div class="actions"><button onclick="saveBoyMorning()">Save Morning Stock</button></div>
+</div>
+<div id="boyStockEvening" class="panel">
+<h3>Evening Closing (Delivery Boy)</h3>
+<div class="grid">
+<div><label>10L cans delivered</label><input id="del10" type="number" min="0" value="0"></div>
+<div><label>10L full cans returned</label><input id="fullRet10" type="number" min="0" value="0"></div>
+<div><label>10L empty cans returned</label><input id="emptyRet10" type="number" min="0" value="0"></div>
+<div><label>20L cans delivered</label><input id="del20" type="number" min="0" value="0"></div>
+<div><label>20L full cans returned</label><input id="fullRet20" type="number" min="0" value="0"></div>
+<div><label>20L empty cans returned</label><input id="emptyRet20" type="number" min="0" value="0"></div>
+<div><label>20L water bags delivered</label><input id="delBag" type="number" min="0" value="0"></div>
+<div><label>20L water bags returned unused</label><input id="fullRetBag" type="number" min="0" value="0"></div>
+</div>
+<div class="actions"><button onclick="saveBoyEvening()">Save Evening Closing</button></div>
+<p class="note">Full return + delivered must equal morning issue. Empty can returns are counted separately.</p>
+</div>
+</div>
+<div class="panel">
+<h3>Daily Calculation</h3>
+<div id="boyStockSummary" class="empty">Select a date and Delivery Boy.</div>
+</div>
+<div class="panel">
+<h3>All Boys Daily Summary</h3>
+<div id="allBoyStockSummary" class="empty">No daily stock records.</div>
+</div>
+</section>
+
 <section id="reports" class="view hidden">
 <div class="panel">
 <h2>Stock summary</h2>
@@ -180,6 +226,7 @@ let D=JSON.parse(localStorage.getItem(K)||'null')||{of:0,oe:0,af:0,ae:0,del:0,re
 if(!Array.isArray(D.customers))D.customers=[];
 if(!Array.isArray(D.deliveries))D.deliveries=[];
 if(!D.attendance||typeof D.attendance!=='object')D.attendance={};
+if(!Array.isArray(D.boyStock))D.boyStock=[];
 D.deliveries.forEach((x,i)=>{if(x.id==null)x.id=Date.now()+i});
 let currentRole='Admin';
 const $=id=>document.getElementById(id);
@@ -194,6 +241,9 @@ $('app').classList.remove('hidden');
 $('welcome').textContent='Hello, '+currentRole;
 $('today').textContent='Today: '+new Date().toLocaleDateString('en-IN');
 $('attDate').value=localDateKey();
+$('boyStockDate').value=localDateKey();
+$('boyStockBoy').value=currentRole.startsWith('Delivery Boy')?currentRole:'Delivery Boy 1';
+$('boyStockBoy').disabled=currentRole!=='Admin';
 $('db').value=currentRole;
 $('db').disabled=currentRole!=='Admin';
 $('openingBtn').disabled=currentRole!=='Admin';
@@ -211,6 +261,7 @@ document.querySelectorAll('.view').forEach(x=>x.classList.add('hidden'));
 $(id).classList.remove('hidden');
 document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
 b.classList.add('active');
+if(id==='boyStock')loadBoyStock();
 render();
 }
 function addStock(){
@@ -362,6 +413,56 @@ D.attendance[date]={...record,markedAt:new Date().toLocaleString('en-IN'),marked
 save();
 renderAttendance();
 alert('Attendance saved');
+}
+
+
+function boyStockKey(date,boy){return date+'|'+boy}
+function getBoyStock(date,boy){return D.boyStock.find(x=>x.date===date&&x.boy===boy)}
+function loadBoyStock(){
+let date=$('boyStockDate').value||localDateKey(),boy=$('boyStockBoy').value;
+let rec=getBoyStock(date,boy);
+$('boyStockMorning').classList.toggle('hidden',currentRole!=='Admin');
+$('boyStockEvening').classList.toggle('hidden',currentRole==='Admin'&&false);
+['issue10','issue20','issueBag','del10','fullRet10','emptyRet10','del20','fullRet20','emptyRet20','delBag','fullRetBag'].forEach(id=>$(id).value=rec?Number(rec[id]||0):0);
+$('boyStockSummary').innerHTML=rec?boyStockSummaryHtml(rec):'<p class="empty">આ તારીખ માટે Morning Stock હજુ નોંધાયો નથી.</p>';
+let all=D.boyStock.filter(x=>x.date===date);
+$('allBoyStockSummary').innerHTML=all.length?'<div class="table-wrap"><table><tr><th>Boy</th><th>10L Issue / Delivered / Full Return</th><th>20L Issue / Delivered / Full Return</th><th>Bag Issue / Delivered / Return</th></tr>'+all.map(x=>`<tr><td>${esc(x.boy)}</td><td>${Number(x.issue10||0)} / ${Number(x.del10||0)} / ${Number(x.fullRet10||0)}</td><td>${Number(x.issue20||0)} / ${Number(x.del20||0)} / ${Number(x.fullRet20||0)}</td><td>${Number(x.issueBag||0)} / ${Number(x.delBag||0)} / ${Number(x.fullRetBag||0)}</td></tr>`).join('')+'</table></div>':'<p class="empty">આ તારીખે કોઈ Stock issue નોંધાયો નથી.</p>';
+}
+function boyStockSummaryHtml(x){
+return `<p><b>${esc(x.boy)}</b> • ${esc(x.date)}</p>
+<div class="table-wrap"><table><tr><th>Product</th><th>Morning issue</th><th>Delivered</th><th>Full returned</th><th>Empty returned</th><th>Customer balance*</th></tr>
+<tr><td>10L Can</td><td>${Number(x.issue10||0)}</td><td>${Number(x.del10||0)}</td><td>${Number(x.fullRet10||0)}</td><td>${Number(x.emptyRet10||0)}</td><td>${Number(x.del10||0)-Number(x.emptyRet10||0)}</td></tr>
+<tr><td>20L Can</td><td>${Number(x.issue20||0)}</td><td>${Number(x.del20||0)}</td><td>${Number(x.fullRet20||0)}</td><td>${Number(x.emptyRet20||0)}</td><td>${Number(x.del20||0)-Number(x.emptyRet20||0)}</td></tr>
+<tr><td>20L Water Bag</td><td>${Number(x.issueBag||0)}</td><td>${Number(x.delBag||0)}</td><td>${Number(x.fullRetBag||0)}</td><td>—</td><td>${Number(x.delBag||0)}</td></tr></table></div>
+<p class="note">*Customer balance is today's delivered cans minus today's empty returns. It is a daily estimate; empty returns from earlier days may affect the actual customer-wise balance.</p>`;
+}
+function saveBoyMorning(){
+if(currentRole!=='Admin')return alert('Only Admin can assign morning stock');
+let date=$('boyStockDate').value,boy=$('boyStockBoy').value;
+if(!date)return alert('Select date');
+let vals=['issue10','issue20','issueBag'].map(id=>Number($(id).value));
+if(vals.some(v=>!Number.isInteger(v)||v<0))return alert('Enter valid whole-number stock quantities');
+let rec=getBoyStock(date,boy);
+if(!rec){rec={date,boy};D.boyStock.push(rec)}
+['issue10','issue20','issueBag'].forEach((id,i)=>rec[id]=vals[i]);
+save();loadBoyStock();alert('Morning stock saved for '+boy);
+}
+function saveBoyEvening(){
+let date=$('boyStockDate').value,boy=$('boyStockBoy').value;
+if(currentRole!=='Admin'&&currentRole!==boy)return alert('You can update only your own daily stock');
+let rec=getBoyStock(date,boy);
+if(!rec)return alert('Admin must save morning stock first');
+let ids=['del10','fullRet10','emptyRet10','del20','fullRet20','emptyRet20','delBag','fullRetBag'];
+let vals=ids.map(id=>Number($(id).value));
+if(vals.some(v=>!Number.isInteger(v)||v<0))return alert('Enter valid whole-number quantities');
+let v=Object.fromEntries(ids.map((id,i)=>[id,vals[i]]));
+if(v.del10+v.fullRet10!==Number(rec.issue10||0))return alert('10L: Delivered + full returned must equal morning issue.');
+if(v.del20+v.fullRet20!==Number(rec.issue20||0))return alert('20L: Delivered + full returned must equal morning issue.');
+if(v.delBag+v.fullRetBag!==Number(rec.issueBag||0))return alert('Water Bag: Delivered + unused bags returned must equal morning issue.');
+if(v.emptyRet10>v.del10||v.emptyRet20>v.del20)return alert('Empty returns cannot exceed today's delivered cans in this daily demo calculation.');
+ids.forEach(id=>rec[id]=v[id]);
+rec.closedAt=new Date().toLocaleString('en-IN');rec.closedBy=currentRole;
+save();loadBoyStock();alert('Evening stock closing saved');
 }
 
 function render(){
