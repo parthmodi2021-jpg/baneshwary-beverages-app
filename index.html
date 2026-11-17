@@ -672,6 +672,7 @@ async function generateMonthlyBill(customerId){
  ctx.font='34px Arial';ctx.fillStyle='#d9fff0';ctx.fillText('BEVERAGES',304,175);
  ctx.font='25px Arial';ctx.fillStyle='#ffffff';ctx.fillText('20 LITRE MINERAL WATER',304,225);
  ctx.font='20px Arial';ctx.fillStyle='#d9fff0';ctx.fillText('Dantiwada • Banaskantha, Gujarat',304,270);
+ ctx.font='17px Arial';ctx.fillStyle='#eafff6';ctx.fillText('Call: +91 94266 23698   |   WhatsApp: +91 81404 23698   |   baneshwarywater@gmail.com',304,310);
  ctx.textAlign='right';ctx.font='bold 20px Arial';ctx.fillStyle='#eafff6';ctx.fillText('MONTHLY STATEMENT',1115,85);ctx.font='18px Arial';ctx.fillText('CUSTOMER COPY',1115,118);ctx.textAlign='left';
  // Bill title and reference
  round(70,365,1060,112,20,'#eaf5ef');
@@ -694,7 +695,7 @@ async function generateMonthlyBill(customerId){
  ctx.fillStyle='#183d30';ctx.font='bold 26px Arial';ctx.fillText('20 Litre Mineral Water Can',100,880);ctx.fillStyle='#426b59';ctx.font='bold 25px Arial';ctx.fillText('20 લિટર મિનરલ વોટર કેન',100,918);
  ctx.textAlign='center';ctx.fillStyle='#183d30';ctx.font='bold 27px Arial';ctx.fillText(String(x.cans),710,890);ctx.fillText(money(20),865,890);ctx.textAlign='right';ctx.fillStyle='#075c3d';ctx.font='bold 29px Arial';ctx.fillText(money(x.bill),1095,890);ctx.textAlign='left';
  // Actual BANESHWARY 20 litre water can photo from the supplied company banner
- if(productPhoto.complete && productPhoto.naturalWidth){{ctx.save();ctx.shadowColor='rgba(0,70,130,.16)';ctx.shadowBlur=22;ctx.drawImage(productPhoto,105,970,390,390);ctx.restore();}}
+ if(productPhoto.complete && productPhoto.naturalWidth){{ctx.save();ctx.shadowColor='rgba(0,70,130,.16)';ctx.shadowBlur=22;ctx.drawImage(productPhoto,65,955,500,430);ctx.restore();}}
  // Premium payment summary
  round(600,990,530,330,22,'#f7fbf8','#dcebe3');
  ctx.fillStyle='#547565';ctx.font='bold 19px Arial';ctx.fillText('PAYMENT SUMMARY',640,1040);
@@ -707,6 +708,7 @@ async function generateMonthlyBill(customerId){
  ctx.textAlign='center';ctx.fillStyle='#075c3d';ctx.font='bold 29px Arial';ctx.fillText('આપના વિશ્વાસ અને સહયોગ બદલ આભાર 🙏',600,1440);
  ctx.fillStyle='#658174';ctx.font='20px Arial';ctx.fillText('Thank you for choosing BANESHWARY BEVERAGES',600,1480);
  ctx.fillStyle='#8aa397';ctx.font='17px Arial';ctx.fillText('For any billing query, please contact us.',600,1520);ctx.textAlign='left';
+ ctx.fillStyle='#075c3d';ctx.font='bold 17px Arial';ctx.textAlign='center';ctx.fillText('Call: +91 94266 23698  |  WhatsApp: +91 81404 23698  |  baneshwarywater@gmail.com',600,1550);ctx.textAlign='left';
  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
  if(!blob)return alert('Bill image could not be created. Please try again.');
  const safeName=String(c.n||'customer').replace(/[^a-z0-9 Gujarati_-]/gi,'_');
