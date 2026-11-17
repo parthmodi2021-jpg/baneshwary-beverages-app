@@ -129,7 +129,7 @@ th{font-size:11px;color:var(--m)}
 </div>
 <div class="actions"><button onclick="addCustomer()">Add customer</button></div>
 </div>
-<div class="panel"><h2>Customer list</h2><div id="cl" class="empty">No customers yet.</div></div>
+<div class="panel"><h2>Customer list</h2><p class="note">WhatsApp અથવા SMS બટન દબાવતાં મેસેજ તૈયાર થશે. મોકલતાં પહેલાં તમે તેને જોઈ અને બદલી શકશો.</p><div id="cl" class="empty">No customers yet.</div></div>
 </section>
 
 <section id="delivery" class="view hidden">
@@ -228,6 +228,20 @@ let f=Number($('of').value),e=Number($('oe').value);
 if(!Number.isInteger(f)||!Number.isInteger(e)||f<0||e<0)return alert('Enter valid whole-number quantities');
 D.of=f;D.oe=e;save();alert('Opening stock saved');
 }
+function sendCustomerMessage(customerId,method){
+let c=D.customers.find(x=>Number(x.id)===Number(customerId));
+if(!c)return alert('Customer not found');
+let phone=String(c.p||'').replace(/\\D/g,'');
+if(!phone)return alert('Please add this customer mobile number first');
+if(phone.length===10)phone='91'+phone;
+let message=`નમસ્તે ${c.n} 🙏 આજે અમે તમને પાણીના કેનની ડિલિવરી કરી દીધી છે. આશા છે કે તમને સમયસર પાણી મળી ગયું હશે. અમારી સાથે જોડાયેલા રહેવા બદલ આભાર. 😊 BANESHWARY BEVERAGES`;
+let encoded=encodeURIComponent(message);
+if(method==='whatsapp'){
+window.location.href='https://wa.me/'+phone+'?text='+encoded;
+}else{
+window.location.href='sms:'+phone+'?body='+encoded;
+}
+}
 function addCustomer(){
 let n=$('cn').value.trim();
 if(!n)return alert('Customer name is required');
@@ -323,7 +337,7 @@ $('cm').textContent=D.customers.length;
 $('dm').textContent=D.deliveries.filter(x=>String(x.date||'').startsWith(today)).reduce((a,x)=>a+Number(x.f||0),0);
 $('sf').textContent=full();
 $('se').textContent=empty();
-$('cl').innerHTML=D.customers.length?'<div class="table-wrap"><table><tr><th>Name</th><th>Mobile</th><th>Area</th><th>Regular</th></tr>'+D.customers.map(c=>`<tr><td>${esc(c.n)}</td><td>${esc(c.p)}</td><td>${esc(c.a)}</td><td>${Number(c.r||0)}</td></tr>`).join('')+'</table></div>':'<div class="empty">No customers yet.</div>';
+$('cl').innerHTML=D.customers.length?'<div class="table-wrap"><table><tr><th>Name</th><th>Mobile</th><th>Area</th><th>Regular</th><th>Message</th></tr>'+D.customers.map(c=>`<tr><td>${esc(c.n)}</td><td>${esc(c.p)}</td><td>${esc(c.a)}</td><td>${Number(c.r||0)}</td><td><div class="row-actions"><button class="tiny" onclick="sendCustomerMessage(${Number(c.id)},'whatsapp')">WhatsApp</button><button class="tiny secondary" onclick="sendCustomerMessage(${Number(c.id)},'sms')">SMS / Text</button></div></td></tr>`).join('')+'</table></div>':'<div class="empty">No customers yet.</div>';
 let old=$('dc').value;
 $('dc').innerHTML='<option value="">Select customer</option>'+D.customers.map(c=>`<option value="${Number(c.id)}">${esc(c.n)}${c.a?' - '+esc(c.a):''}</option>`).join('');
 $('dc').value=old;
