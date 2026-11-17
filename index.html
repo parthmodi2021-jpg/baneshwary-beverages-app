@@ -368,7 +368,7 @@ D.of=f;D.oe=e;save();alert('Opening stock saved');
 function sendCustomerMessage(customerId,method){
 let c=D.customers.find(x=>Number(x.id)===Number(customerId));
 if(!c)return alert('Customer not found');
-let phone=String(c.p||'').replace(/\\D/g,'');
+let phone=String(c.p||'').replace(/\D/g,'');
 if(!phone)return alert('Please add this customer mobile number first');
 if(phone.length===10)phone='91'+phone;
 let message=`નમસ્તે ${c.n} 🙏 આજે અમે તમને પાણીના કેનની ડિલિવરી કરી દીધી છે. આશા છે કે તમને સમયસર પાણી મળી ગયું હશે. અમારી સાથે જોડાયેલા રહેવા બદલ આભાર. 😊 BANESHWARY BEVERAGES`;
@@ -651,42 +651,61 @@ async function generateMonthlyBill(customerId){
  const x=monthBillFor(c,month);
  const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=1600;
  const ctx=canvas.getContext('2d');
- ctx.fillStyle='#f7fffb';ctx.fillRect(0,0,1200,1600);
- ctx.fillStyle='#087a45';ctx.fillRect(0,0,1200,300);
- ctx.fillStyle='#ffffff';ctx.font='bold 54px Arial';ctx.fillText('BANESHWARY',300,105);
- ctx.font='34px Arial';ctx.fillText('Beverages',305,155);
- ctx.font='28px Arial';ctx.fillText('20 Litre Mineral Water',305,215);
+ const round=(a,b,w,h,r,fill,stroke)=>{ctx.beginPath();ctx.roundRect(a,b,w,h,r);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()}};
+ const line=(a,b,c,d,color='#dcebe4',width=2)=>{ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke()};
+ const money=n=>'₹'+Number(n||0).toLocaleString('en-IN');
+ const safe=(v)=>String(v||'-').replace(/[\r\n]/g,' ').slice(0,42);
+ // Premium water-inspired paper background
+ const bg=ctx.createLinearGradient(0,0,1200,1600);bg.addColorStop(0,'#f4fbff');bg.addColorStop(.48,'#ffffff');bg.addColorStop(1,'#eaf8f2');ctx.fillStyle=bg;ctx.fillRect(0,0,1200,1600);
+ ctx.fillStyle='#d9f0ff';ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(1200,0);ctx.lineTo(1200,260);ctx.quadraticCurveTo(850,330,570,260);ctx.quadraticCurveTo(230,190,0,285);ctx.closePath();ctx.fill();
+ // Main premium invoice sheet
+ round(32,28,1136,1544,30,'#ffffff','#cfe5da');
+ // Branded header
+ ctx.save();ctx.beginPath();ctx.roundRect(32,28,1136,290,[30,30,0,0]);ctx.clip();
+ const g=ctx.createLinearGradient(32,28,1168,318);g.addColorStop(0,'#064c35');g.addColorStop(.55,'#07805a');g.addColorStop(1,'#10a5a0');ctx.fillStyle=g;ctx.fillRect(32,28,1136,290);
+ ctx.globalAlpha=.13;for(let i=0;i<7;i++){ctx.beginPath();ctx.arc(950+i*45,50+i*30,95,0,Math.PI*2);ctx.fillStyle='#ffffff';ctx.fill()}ctx.globalAlpha=1;ctx.restore();
  const logo=document.querySelector('#splash img');
- if(logo){try{ctx.drawImage(logo,55,45,190,205)}catch(e){}}
- ctx.fillStyle='#dff7e9';ctx.fillRect(0,300,1200,105);
- ctx.fillStyle='#075c38';ctx.font='bold 42px Arial';ctx.fillText('MONTHLY BILL / માસિક બિલ',75,370);
- ctx.fillStyle='#18352b';ctx.font='30px Arial';
- ctx.fillText('Customer: '+String(c.n||''),70,490);
- ctx.fillText('Area: '+String(c.a||'-'),70,550);
- ctx.fillText('Month: '+month,70,610);
- ctx.fillText('Bill date: '+new Date().toLocaleDateString('en-IN'),700,610);
- ctx.fillStyle='#087a45';ctx.fillRect(55,690,1090,85);
- ctx.fillStyle='#ffffff';ctx.font='bold 30px Arial';ctx.fillText('Description',85,745);ctx.fillText('Qty',640,745);ctx.fillText('Rate',790,745);ctx.fillText('Amount',950,745);
- ctx.fillStyle='#ffffff';ctx.fillRect(55,775,1090,105);ctx.strokeStyle='#087a45';ctx.lineWidth=3;ctx.strokeRect(55,775,1090,105);
- ctx.fillStyle='#18352b';ctx.font='28px Arial';ctx.fillText('20 Litre Water Can',85,840);ctx.fillText(String(x.cans),660,840);ctx.fillText('Rs. 20',790,840);ctx.fillText('Rs. '+x.bill,950,840);
- const summary=[['Total bill / કુલ બિલ','Rs. '+x.bill],['Paid / ચૂકવેલ','Rs. '+x.paid],['Balance due / બાકી','Rs. '+x.balance]];
- let yy=970;summary.forEach((r,i)=>{ctx.fillStyle=i===2?'#087a45':'#e4f6eb';ctx.fillRect(420,yy,725,90);ctx.fillStyle=i===2?'#ffffff':'#18352b';ctx.font='bold 30px Arial';ctx.fillText(r[0],455,yy+57);ctx.fillText(r[1],900,yy+57);yy+=95});
- ctx.fillStyle='#087a45';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText('આપના અમૂલ્ય સહયોગ બદલ આભાર 🙏',600,1375);
- ctx.font='24px Arial';ctx.fillText('BANESHWARY BEVERAGES • Dantiwada',600,1440);
- ctx.textAlign='left';
+ if(logo){try{round(65,72,190,180,24,'#ffffff');ctx.drawImage(logo,78,82,164,158)}catch(e){}}
+ ctx.textAlign='left';ctx.fillStyle='#ffffff';ctx.font='bold 58px Arial';ctx.fillText('BANESHWARY',292,112);
+ ctx.font='34px Arial';ctx.fillStyle='#d9fff0';ctx.fillText('B E V E R A G E S',300,160);
+ ctx.font='bold 24px Arial';ctx.fillStyle='#ffffff';ctx.fillText('20 LITRE MINERAL WATER',300,218);
+ ctx.font='19px Arial';ctx.fillStyle='#eafff6';ctx.fillText('AN ISO 9001:2015  •  Dantiwada, Gujarat',300,265);
+ ctx.textAlign='right';ctx.font='bold 20px Arial';ctx.fillStyle='#ffffff';ctx.fillText('MONTHLY INVOICE',1125,82);ctx.font='18px Arial';ctx.fillText('CUSTOMER COPY',1125,116);ctx.textAlign='left';
+ // Contact strip
+ round(62,340,1076,86,18,'#f1faf5','#cce6d8');ctx.fillStyle='#075c3d';ctx.font='bold 20px Arial';ctx.fillText('☎  +91 94266 23698',90,392);ctx.fillText('WhatsApp  +91 81404 23698',440,392);ctx.font='18px Arial';ctx.fillText('baneshwarywater@gmail.com',830,392);
+ // Invoice title
+ round(260,462,680,82,22,'#087a52');ctx.textAlign='center';ctx.fillStyle='#ffffff';ctx.font='bold 39px Arial';ctx.fillText('માસિક બિલ  /  MONTHLY BILL',600,516);ctx.textAlign='left';
+ // Customer and billing details
+ round(65,575,1070,205,22,'#f8fcf9','#cfe5da');
+ ctx.fillStyle='#527666';ctx.font='bold 18px Arial';ctx.fillText('BILLED TO / ગ્રાહકની વિગત',95,615);
+ ctx.fillStyle='#153e2e';ctx.font='bold 30px Arial';ctx.fillText(safe(c.n),95,665);
+ ctx.font='22px Arial';ctx.fillStyle='#45695a';ctx.fillText('સરનામું: '+safe(c.a),95,710);ctx.fillText('મોબાઇલ: '+safe(c.p),95,750);
+ line(690,600,690,755,'#c9dfd4',2);
+ ctx.fillStyle='#527666';ctx.font='bold 18px Arial';ctx.fillText('BILLING PERIOD',730,615);
+ ctx.fillStyle='#075c3d';ctx.font='bold 31px Arial';ctx.fillText(month,730,665);
+ ctx.fillStyle='#45695a';ctx.font='22px Arial';ctx.fillText('Bill date: '+new Date().toLocaleDateString('en-IN'),730,710);
+ const billNo='BB/'+month.replace('-','/')+'/'+String(c.id).slice(-4).padStart(4,'0');ctx.fillText('Bill No.: '+billNo,730,750);
+ // Itemized table
+ round(65,825,1070,76,15,'#087a52');ctx.fillStyle='#ffffff';ctx.font='bold 22px Arial';ctx.fillText('વિગત / DESCRIPTION',95,873);ctx.textAlign='center';ctx.fillText('માત્રા',675,873);ctx.fillText('દર',840,873);ctx.textAlign='right';ctx.fillText('કુલ રકમ',1100,873);ctx.textAlign='left';
+ round(65,901,1070,112,0,'#ffffff','#cfe5da');ctx.fillStyle='#173f30';ctx.font='bold 25px Arial';ctx.fillText('20 લિટર મિનરલ વોટર કેન',95,948);ctx.font='18px Arial';ctx.fillStyle='#658174';ctx.fillText('20 Litre Mineral Water Can',95,982);
+ ctx.textAlign='center';ctx.fillStyle='#173f30';ctx.font='bold 28px Arial';ctx.fillText(String(x.cans),675,965);ctx.fillText(money(20),840,965);ctx.textAlign='right';ctx.fillStyle='#075c3d';ctx.font='bold 31px Arial';ctx.fillText(money(x.bill),1100,965);ctx.textAlign='left';
+ // Payment summary card
+ round(430,1060,705,340,24,'#f4fbf6','#cfe5da');ctx.fillStyle='#527666';ctx.font='bold 20px Arial';ctx.fillText('PAYMENT SUMMARY / પેમેન્ટ વિગત',470,1110);line(470,1130,1095,1130);
+ const entries=[['કુલ બિલ રકમ  •  Total Bill',x.bill],['ચૂકવેલ રકમ  •  Paid',x.paid]];let yy=1190;entries.forEach(e=>{ctx.fillStyle='#45695a';ctx.font='bold 23px Arial';ctx.fillText(e[0],470,yy);ctx.textAlign='right';ctx.fillStyle='#153e2e';ctx.font='bold 29px Arial';ctx.fillText(money(e[1]),1090,yy);ctx.textAlign='left';yy+=78});
+ round(455,1290,655,82,18,'#075c3d');ctx.fillStyle='#ffffff';ctx.font='bold 26px Arial';ctx.fillText('બાકી રકમ  /  BALANCE DUE',485,1343);ctx.textAlign='right';ctx.font='bold 36px Arial';ctx.fillStyle='#fff36a';ctx.fillText(money(x.balance),1080,1347);ctx.textAlign='left';
+ // Water jug illustration and footer accents
+ ctx.fillStyle='#d7f1ff';ctx.beginPath();ctx.ellipse(225,1280,150,30,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#7fc9e9';ctx.beginPath();ctx.roundRect(155,1110,140,170,30);ctx.fill();ctx.fillStyle='#ffffff';ctx.fillRect(182,1170,86,55);ctx.fillStyle='#087a52';ctx.fillRect(190,1180,70,35);ctx.fillStyle='#ffffff';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText('BANESHWARY',225,1202);ctx.textAlign='left';ctx.fillStyle='#1b8cc0';ctx.fillRect(198,1080,54,35);
+ line(65,1440,1135,1440,'#cfe5da',2);ctx.textAlign='center';ctx.fillStyle='#075c3d';ctx.font='bold 27px Arial';ctx.fillText('આપના વિશ્વાસ અને સહયોગ બદલ આભાર 🙏',600,1490);ctx.fillStyle='#658174';ctx.font='19px Arial';ctx.fillText('Please pay the balance amount at your convenience.',600,1530);ctx.textAlign='left';
  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
  if(!blob)return alert('Bill image could not be created. Please try again.');
  const safeName=String(c.n||'customer').replace(/[^a-z0-9 Gujarati_-]/gi,'_');
- const file=new File([blob],'Baneshwary-Bill-'+safeName+'-'+month+'.png',{type:'image/png'});
+ const file=new File([blob],'Baneshwary-Premium-Bill-'+safeName+'-'+month+'.png',{type:'image/png'});
  const phone=String(c.p||'').replace(/\D/g,'');
- const message='નમસ્તે '+c.n+' 🙏\nઆપનું '+month+' મહિનાનું BANESHWARY BEVERAGES બિલ મોકલ્યું છે.\nકુલ કેન: '+x.cans+'\nકુલ બિલ: ₹'+x.bill+'\nચૂકવેલ: ₹'+x.paid+'\nબાકી: ₹'+x.balance+'\nઆભાર!';
- if(navigator.canShare&&navigator.canShare({files:[file]})){
-   try{await navigator.share({files:[file],title:'BANESHWARY Monthly Bill',text:message});return}catch(err){if(err&&err.name==='AbortError')return;}
- }
+ const message='નમસ્તે '+c.n+' 🙏\nઆપનું '+month+' મહિનાનું BANESHWARY BEVERAGES પ્રીમિયમ બિલ મોકલ્યું છે.\nકુલ કેન: '+x.cans+'\nકુલ બિલ: ₹'+x.bill+'\nચૂકવેલ: ₹'+x.paid+'\nબાકી: ₹'+x.balance+'\nઆભાર!';
+ if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'BANESHWARY Premium Monthly Bill',text:message});return}catch(err){if(err&&err.name==='AbortError')return;}}
  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
- const wa='https://wa.me/'+(phone.length===10?'91'+phone:phone)+'?text='+encodeURIComponent(message);
- if(phone)window.open(wa,'_blank');
- alert('Bill image downloaded. WhatsApp will open with the message. Attach the downloaded bill image before sending.');
+ const wa='https://wa.me/'+(phone.length===10?'91'+phone:phone)+'?text='+encodeURIComponent(message);if(phone)window.open(wa,'_blank');
+ alert('Premium bill image downloaded. WhatsApp will open with the message. Attach the downloaded bill image before sending.');
 }
 
 function monthlyBillCSV(){
