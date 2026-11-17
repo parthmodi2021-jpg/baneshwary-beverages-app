@@ -77,6 +77,7 @@ th{font-size:11px;color:var(--m)}
 <button onclick="tab('stock',this)">Stock</button>
 <button onclick="tab('customers',this)">Customers</button>
 <button onclick="tab('delivery',this)">Delivery</button>
+<button onclick="tab('attendance',this)">Attendance</button>
 <button onclick="tab('reports',this)">Reports</button>
 </nav>
 
@@ -151,6 +152,17 @@ th{font-size:11px;color:var(--m)}
 </div>
 </section>
 
+<section id="attendance" class="view hidden">
+<div class="panel">
+<h2>Daily attendance</h2>
+<label>Attendance date</label>
+<input id="attDate" type="date" onchange="renderAttendance()">
+<p class="note" id="attPermission"></p>
+<div id="attendanceList" class="empty">Attendance is not marked yet.</div>
+<div class="actions" id="attendanceActions"><button onclick="saveAttendance()">Save attendance</button></div>
+</div>
+</section>
+
 <section id="reports" class="view hidden">
 <div class="panel">
 <h2>Stock summary</h2>
@@ -159,7 +171,7 @@ th{font-size:11px;color:var(--m)}
 </div>
 </section>
 </section>
-<div class="foot">BANESHWARY BEVERAGES • Local preview v3</div>
+<div class="foot">BANESHWARY BEVERAGES • Local preview v4</div>
 </main>
 
 <script>
@@ -167,6 +179,7 @@ const K='baneshwary_stock_v1';
 let D=JSON.parse(localStorage.getItem(K)||'null')||{of:0,oe:0,af:0,ae:0,del:0,ret:0,customers:[],deliveries:[]};
 if(!Array.isArray(D.customers))D.customers=[];
 if(!Array.isArray(D.deliveries))D.deliveries=[];
+if(!D.attendance||typeof D.attendance!=='object')D.attendance={};
 D.deliveries.forEach((x,i)=>{if(x.id==null)x.id=Date.now()+i});
 let currentRole='Admin';
 const $=id=>document.getElementById(id);
@@ -180,6 +193,7 @@ $('login').classList.add('hidden');
 $('app').classList.remove('hidden');
 $('welcome').textContent='Hello, '+currentRole;
 $('today').textContent='Today: '+new Date().toLocaleDateString('en-IN');
+$('attDate').value=localDateKey();
 $('db').value=currentRole;
 $('db').disabled=currentRole!=='Admin';
 $('openingBtn').disabled=currentRole!=='Admin';
@@ -269,6 +283,38 @@ D.ret=Number(D.ret||0)-Number(x.e||0);
 D.deliveries.splice(i,1);
 save();alert('Delivery deleted. Stock balance corrected.');
 }
+const staffNames=['Delivery Boy 1','Delivery Boy 2','Delivery Boy 3','Delivery Boy 4'];
+function localDateKey(){let d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function renderAttendance(){
+let date=$('attDate').value||localDateKey();
+let day=D.attendance[date]||{};
+let admin=currentRole==='Admin';
+$('attPermission').textContent=admin?'Admin can mark or update attendance for all four Delivery Boys.':'View only: only Admin can mark or change attendance.';
+$('attendanceActions').classList.toggle('hidden',!admin);
+$('attendanceList').innerHTML='<div class="table-wrap"><table><tr><th>Delivery Boy</th><th>Status</th></tr>'+staffNames.map((name,i)=>{
+let status=day[name]||'';
+let cell=admin?`<select id="att_${i}"><option value="">Not marked</option><option value="Present" ${status==='Present'?'selected':''}>Present</option><option value="Absent" ${status==='Absent'?'selected':''}>Absent</option><option value="Half Day" ${status==='Half Day'?'selected':''}>Half Day</option></select>`:`<b>${esc(status||'Not marked')}</b>`;
+return `<tr><td>${name}</td><td>${cell}</td></tr>`;
+}).join('')+'</table></div>';
+if(day.markedAt)$('attendanceList').innerHTML+=`<p class="note">Last updated: ${esc(day.markedAt)} by ${esc(day.markedBy||'Admin')}</p>`;
+}
+function saveAttendance(){
+if(currentRole!=='Admin')return alert('Only Admin can mark or change attendance');
+let date=$('attDate').value;
+if(!date)return alert('Select attendance date');
+let record={};
+for(let i=0;i<staffNames.length;i++){
+let status=$('att_'+i).value;
+if(!['','Present','Absent','Half Day'].includes(status))return alert('Invalid attendance status');
+if(status)record[staffNames[i]]=status;
+}
+if(Object.keys(record).length===0)return alert('Please mark attendance for at least one Delivery Boy');
+D.attendance[date]={...record,markedAt:new Date().toLocaleString('en-IN'),markedBy:currentRole};
+save();
+renderAttendance();
+alert('Attendance saved');
+}
+
 function render(){
 let today=new Date().toLocaleDateString('en-IN');
 $('fm').textContent=full();
@@ -288,6 +334,7 @@ if(currentRole==='Admin')actions+=` <button class="tiny danger" onclick="deleteD
 return `<tr><td>${esc(x.date)}</td><td>${esc(x.n)}</td><td>${Number(x.f||0)}</td><td>${Number(x.e||0)}</td><td>${esc(x.b||'Admin')}</td><td>${Number(x.p||0)}</td><td><div class="row-actions">${actions}</div></td></tr>`;
 }).join('')+'</table></div>':'<div class="empty">No deliveries recorded.</div>';
 $('rs').innerHTML=`<p>Opening full cans: <b>${Number(D.of||0)}</b></p><p>Added / produced: <b>${Number(D.af||0)}</b></p><p>Delivered: <b>${Number(D.del||0)}</b></p><p>Current full cans: <b>${full()}</b></p><p>Current empty cans: <b>${empty()}</b></p><p>Payments recorded: <b>₹${D.deliveries.reduce((a,x)=>a+Number(x.p||0),0)}</b></p>`;
+if($('attDate'))renderAttendance();
 }
 function csv(){
 let rows=[['Date','Customer','Full cans','Empty returned','Delivery boy','Payment'],...D.deliveries.map(x=>[x.date,x.n,x.f,x.e,x.b,x.p])];
