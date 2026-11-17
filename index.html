@@ -459,7 +459,7 @@ let v=Object.fromEntries(ids.map((id,i)=>[id,vals[i]]));
 if(v.del10+v.fullRet10!==Number(rec.issue10||0))return alert('10L: Delivered + full returned must equal morning issue.');
 if(v.del20+v.fullRet20!==Number(rec.issue20||0))return alert('20L: Delivered + full returned must equal morning issue.');
 if(v.delBag+v.fullRetBag!==Number(rec.issueBag||0))return alert('Water Bag: Delivered + unused bags returned must equal morning issue.');
-if(v.emptyRet10>v.del10||v.emptyRet20>v.del20)return alert('Empty returns cannot exceed today's delivered cans in this daily demo calculation.');
+if(v.emptyRet10>v.del10||v.emptyRet20>v.del20)return alert("Empty returns cannot exceed today delivered cans in this daily demo calculation.");
 ids.forEach(id=>rec[id]=v[id]);
 rec.closedAt=new Date().toLocaleString('en-IN');rec.closedBy=currentRole;
 save();loadBoyStock();alert('Evening stock closing saved');
