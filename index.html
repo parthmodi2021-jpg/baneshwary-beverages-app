@@ -516,7 +516,7 @@ $('orderStockSummary').innerHTML=`Available: 10L <b>${orderStockBalance('s10')}<
 let total=orderTotal(Number($('orderQty10').value)||0,Number($('orderQty20').value)||0,Number($('orderQtyBag').value)||0);
 $('orderPricePreview').textContent='Estimated total: ₹'+total+' (10L ₹10, 20L ₹20, Water Bag ₹20)';
 let filter=$('orderFilter').value,date=$('orderFilterDate').value;
-let rows=D.orders.filter(o=>(filter==='All'||o.status===filter)&&(!date||o.date===date)&&(currentRole==='Admin'||o.boy===currentRole||o.createdBy===currentRole));
+let rows=D.orders.filter(o=>(filter==='All'||o.status===filter)&&(!date||o.date===date));
 $('ordersList').innerHTML=rows.length?'<div class="table-wrap"><table><tr><th>Date / Time</th><th>Customer</th><th>Products</th><th>Boy</th><th>Total</th><th>Status</th><th>Action</th></tr>'+rows.map(o=>{
 let products=`10L: ${o.q10||0}, 20L: ${o.q20||0}, Bag: ${o.qBag||0}`;
 let action=o.status==='Pending'&&(currentRole==='Admin'||o.boy===currentRole)?`<button class="tiny" onclick="completeOrder(${Number(o.id)})">Complete</button>`:'';
