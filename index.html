@@ -77,6 +77,7 @@ th{font-size:11px;color:var(--m)}
 <button onclick="tab('stock',this)">Stock</button>
 <button onclick="tab('customers',this)">Customers</button>
 <button onclick="tab('delivery',this)">Delivery</button>
+<button onclick="tab('orders',this)">Orders</button>
 <button onclick="tab('attendance',this)">Attendance</button>
 <button onclick="tab('boyStock',this)">Boy Stock</button>
 <button onclick="tab('reports',this)">Reports</button>
@@ -150,6 +151,44 @@ th{font-size:11px;color:var(--m)}
 <h2>Recent deliveries</h2>
 <p class="note">All users can view deliveries. Delivery Boys can edit only their own records. Admin can edit or delete any record.</p>
 <div id="dl" class="empty">No deliveries recorded.</div>
+</div>
+</section>
+
+
+<section id="orders" class="view hidden">
+<div class="panel">
+<h2>Product Stock for Orders</h2>
+<p class="note">આ Order વિભાગનો અલગ product stock છે. Admin opening/added stock નોંધશે. Order Completed થાય ત્યારે જ stock ઘટશે.</p>
+<div class="grid">
+<div><label>10L Can opening / added stock</label><input id="orderStock10" type="number" min="0" value="0"></div>
+<div><label>20L Can opening / added stock</label><input id="orderStock20" type="number" min="0" value="0"></div>
+<div><label>20L Water Bag opening / added stock</label><input id="orderStockBag" type="number" min="0" value="0"></div>
+</div>
+<div class="actions"><button onclick="saveOrderStock()">Save product stock</button></div>
+<div id="orderStockSummary" class="note"></div>
+</div>
+<div class="panel">
+<h2>Create New Order</h2>
+<div class="grid">
+<div class="wide"><label>Customer *</label><select id="orderCustomer"><option value="">Select customer</option></select></div>
+<div><label>Delivery date *</label><input id="orderDate" type="date"></div>
+<div><label>Delivery time</label><input id="orderTime" type="time"></div>
+<div><label>10L Can quantity</label><input id="orderQty10" type="number" min="0" value="0" oninput="updateOrderPrice()"></div>
+<div><label>20L Can quantity</label><input id="orderQty20" type="number" min="0" value="0" oninput="updateOrderPrice()"></div>
+<div><label>20L Water Bag quantity</label><input id="orderQtyBag" type="number" min="0" value="0" oninput="updateOrderPrice()"></div>
+<div><label>Assign Delivery Boy</label><select id="orderBoy"><option>Delivery Boy 1</option><option>Delivery Boy 2</option><option>Delivery Boy 3</option><option>Delivery Boy 4</option></select></div>
+<div class="wide"><label>Notes</label><input id="orderNotes" placeholder="Delivery instructions"></div>
+</div>
+<p id="orderPricePreview" class="note">Estimated total: ₹0</p>
+<div class="actions"><button onclick="createOrder()">Save Pending Order</button></div>
+</div>
+<div class="panel">
+<h2>Orders List</h2>
+<div class="grid">
+<div><label>Filter status</label><select id="orderFilter" onchange="renderOrders()"><option value="All">All orders</option><option>Pending</option><option>Completed</option><option>Cancelled</option></select></div>
+<div><label>Filter date</label><input id="orderFilterDate" type="date" onchange="renderOrders()"></div>
+</div>
+<div id="ordersList" class="empty">No orders yet.</div>
 </div>
 </section>
 
@@ -227,6 +266,8 @@ if(!Array.isArray(D.customers))D.customers=[];
 if(!Array.isArray(D.deliveries))D.deliveries=[];
 if(!D.attendance||typeof D.attendance!=='object')D.attendance={};
 if(!Array.isArray(D.boyStock))D.boyStock=[];
+if(!D.orderStock)D.orderStock={s10:0,s20:0,sBag:0,d10:0,d20:0,dBag:0,empty10:0,empty20:0};
+if(!Array.isArray(D.orders))D.orders=[];
 D.deliveries.forEach((x,i)=>{if(x.id==null)x.id=Date.now()+i});
 let currentRole='Admin';
 const $=id=>document.getElementById(id);
@@ -242,6 +283,10 @@ $('welcome').textContent='Hello, '+currentRole;
 $('today').textContent='Today: '+new Date().toLocaleDateString('en-IN');
 $('attDate').value=localDateKey();
 $('boyStockDate').value=localDateKey();
+$('orderDate').value=localDateKey();
+$('orderFilterDate').value='';
+$('orderBoy').value=currentRole.startsWith('Delivery Boy')?currentRole:'Delivery Boy 1';
+$('orderBoy').disabled=currentRole!=='Admin';
 $('boyStockBoy').value=currentRole.startsWith('Delivery Boy')?currentRole:'Delivery Boy 1';
 $('boyStockBoy').disabled=currentRole!=='Admin';
 $('db').value=currentRole;
@@ -262,6 +307,7 @@ $(id).classList.remove('hidden');
 document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
 b.classList.add('active');
 if(id==='boyStock')loadBoyStock();
+if(id==='orders')renderOrders();
 render();
 }
 function addStock(){
@@ -416,6 +462,69 @@ alert('Attendance saved');
 }
 
 
+
+function orderStockBalance(key){return Math.max(0,Number(D.orderStock[key]||0)-Number(D.orderStock['d'+key.slice(1)]||0))}
+function saveOrderStock(){
+if(currentRole!=='Admin')return alert('Only Admin can update product stock');
+let vals={s10:Number($('orderStock10').value),s20:Number($('orderStock20').value),sBag:Number($('orderStockBag').value)};
+if(Object.values(vals).some(v=>!Number.isInteger(v)||v<0))return alert('Enter valid whole-number stock');
+D.orderStock.s10=vals.s10;D.orderStock.s20=vals.s20;D.orderStock.sBag=vals.sBag;
+save();renderOrders();alert('Product stock saved');
+}
+function orderTotal(q10,q20,qBag){return q10*10+q20*20+qBag*20}
+function updateOrderPrice(){$('orderPricePreview').textContent='Estimated total: ₹'+orderTotal(Number($('orderQty10').value)||0,Number($('orderQty20').value)||0,Number($('orderQtyBag').value)||0)+' (10L ₹10, 20L ₹20, Water Bag ₹20)'}
+function createOrder(){
+let customerId=Number($('orderCustomer').value),c=D.customers.find(x=>Number(x.id)===customerId);
+if(!c)return alert('Select a customer');
+let q10=Number($('orderQty10').value)||0,q20=Number($('orderQty20').value)||0,qBag=Number($('orderQtyBag').value)||0;
+if(![q10,q20,qBag].every(v=>Number.isInteger(v)&&v>=0)||!(q10+q20+qBag))return alert('Enter at least one valid product quantity');
+let date=$('orderDate').value;if(!date)return alert('Select delivery date');
+let boy=currentRole==='Admin'?$('orderBoy').value:currentRole;
+D.orders.unshift({id:Date.now(),customerId,n:c.n,p:c.p||'',a:c.a||'',date,time:$('orderTime').value||'',q10,q20,qBag,boy,notes:$('orderNotes').value.trim(),status:'Pending',total:orderTotal(q10,q20,qBag),createdAt:new Date().toLocaleString('en-IN'),createdBy:currentRole});
+$('orderQty10').value=$('orderQty20').value=$('orderQtyBag').value=0;$('orderNotes').value='';
+save();renderOrders();alert('Order saved as Pending. Stock has not been reduced.');
+}
+function completeOrder(id){
+let o=D.orders.find(x=>Number(x.id)===Number(id));if(!o)return alert('Order not found');
+if(currentRole!=='Admin'&&o.boy!==currentRole)return alert('You can complete only your assigned orders');
+if(o.status!=='Pending')return alert('Only Pending orders can be completed');
+let s=D.orderStock;
+let b10=Number(s.s10||0)-Number(s.d10||0),b20=Number(s.s20||0)-Number(s.d20||0),bb=Number(s.sBag||0)-Number(s.dBag||0);
+if(o.q10>b10||o.q20>b20||o.qBag>bb)return alert('Not enough product stock. Admin must update Product Stock first.');
+let e10=Number(prompt('10L empty cans returned:',0));if(!Number.isInteger(e10)||e10<0||e10>o.q10)return alert('Invalid 10L empty return quantity');
+let e20=Number(prompt('20L empty cans returned:',0));if(!Number.isInteger(e20)||e20<0||e20>o.q20)return alert('Invalid 20L empty return quantity');
+s.d10=Number(s.d10||0)+o.q10;s.d20=Number(s.d20||0)+o.q20;s.dBag=Number(s.dBag||0)+o.qBag;
+s.empty10=Number(s.empty10||0)+e10;s.empty20=Number(s.empty20||0)+e20;
+o.empty10=e10;o.empty20=e20;o.status='Completed';o.completedAt=new Date().toLocaleString('en-IN');o.completedBy=currentRole;
+save();renderOrders();alert('Order completed. Product stock deducted and empty cans recorded.');
+}
+function cancelOrder(id){
+let o=D.orders.find(x=>Number(x.id)===Number(id));if(!o)return;
+if(currentRole!=='Admin')return alert('Only Admin can cancel orders');
+if(o.status!=='Pending')return alert('Only Pending orders can be cancelled');
+if(!confirm('Cancel this order? Stock will not change.'))return;
+o.status='Cancelled';o.cancelledAt=new Date().toLocaleString('en-IN');save();renderOrders();
+}
+function renderOrders(){
+if(!$('orderCustomer'))return;
+let old=$('orderCustomer').value;
+$('orderCustomer').innerHTML='<option value="">Select customer</option>'+D.customers.map(c=>`<option value="${Number(c.id)}">${esc(c.n)}${c.a?' - '+esc(c.a):''}</option>`).join('');
+$('orderCustomer').value=old;
+$('orderStock10').value=Number(D.orderStock.s10||0);$('orderStock20').value=Number(D.orderStock.s20||0);$('orderStockBag').value=Number(D.orderStock.sBag||0);
+$('orderStock10').disabled=$('orderStock20').disabled=$('orderStockBag').disabled=currentRole!=='Admin';
+$('orderStockSummary').innerHTML=`Available: 10L <b>${orderStockBalance('s10')}</b> • 20L <b>${orderStockBalance('s20')}</b> • Water Bag <b>${orderStockBalance('sBag')}</b><br>Empty returned: 10L <b>${Number(D.orderStock.empty10||0)}</b> • 20L <b>${Number(D.orderStock.empty20||0)}</b>`;
+let total=orderTotal(Number($('orderQty10').value)||0,Number($('orderQty20').value)||0,Number($('orderQtyBag').value)||0);
+$('orderPricePreview').textContent='Estimated total: ₹'+total+' (10L ₹10, 20L ₹20, Water Bag ₹20)';
+let filter=$('orderFilter').value,date=$('orderFilterDate').value;
+let rows=D.orders.filter(o=>(filter==='All'||o.status===filter)&&(!date||o.date===date)&&(currentRole==='Admin'||o.boy===currentRole||o.createdBy===currentRole));
+$('ordersList').innerHTML=rows.length?'<div class="table-wrap"><table><tr><th>Date / Time</th><th>Customer</th><th>Products</th><th>Boy</th><th>Total</th><th>Status</th><th>Action</th></tr>'+rows.map(o=>{
+let products=`10L: ${o.q10||0}, 20L: ${o.q20||0}, Bag: ${o.qBag||0}`;
+let action=o.status==='Pending'&&(currentRole==='Admin'||o.boy===currentRole)?`<button class="tiny" onclick="completeOrder(${Number(o.id)})">Complete</button>`:'';
+if(currentRole==='Admin'&&o.status==='Pending')action+=` <button class="tiny danger" onclick="cancelOrder(${Number(o.id)})">Cancel</button>`;
+return `<tr><td>${esc(o.date)} ${esc(o.time||'')}</td><td>${esc(o.n)}</td><td>${products}</td><td>${esc(o.boy)}</td><td>₹${Number(o.total||0)}</td><td>${esc(o.status)}</td><td><div class="row-actions">${action||'—'}</div></td></tr>`;
+}).join('')+'</table></div>':'<div class="empty">No orders for this filter.</div>';
+}
+
 function boyStockKey(date,boy){return date+'|'+boy}
 function getBoyStock(date,boy){return D.boyStock.find(x=>x.date===date&&x.boy===boy)}
 function loadBoyStock(){
@@ -485,6 +594,7 @@ return `<tr><td>${esc(x.date)}</td><td>${esc(x.n)}</td><td>${Number(x.f||0)}</td
 }).join('')+'</table></div>':'<div class="empty">No deliveries recorded.</div>';
 $('rs').innerHTML=`<p>Opening full cans: <b>${Number(D.of||0)}</b></p><p>Added / produced: <b>${Number(D.af||0)}</b></p><p>Delivered: <b>${Number(D.del||0)}</b></p><p>Current full cans: <b>${full()}</b></p><p>Current empty cans: <b>${empty()}</b></p><p>Payments recorded: <b>₹${D.deliveries.reduce((a,x)=>a+Number(x.p||0),0)}</b></p>`;
 if($('attDate'))renderAttendance();
+if($('orderCustomer'))renderOrders();
 }
 function csv(){
 let rows=[['Date','Customer','Full cans','Empty returned','Delivery boy','Payment'],...D.deliveries.map(x=>[x.date,x.n,x.f,x.e,x.b,x.p])];
