@@ -129,7 +129,7 @@ th{font-size:11px;color:var(--m)}
 </div>
 <div class="actions"><button onclick="addCustomer()">Add customer</button></div>
 </div>
-<div class="panel"><h2>Customer list</h2><p class="note">WhatsApp અથવા SMS બટન દબાવતાં મેસેજ તૈયાર થશે. મોકલતાં પહેલાં તમે તેને જોઈ અને બદલી શકશો.</p><div id="cl" class="empty">No customers yet.</div></div>
+<div class="panel"><h2>Customer list</h2><p class="note">WhatsApp / SMS મેસેજ, Customer details અને delivery history અહીં મળશે. Customer edit/delete માત્ર Admin કરી શકશે.</p><div id="cl" class="empty">No customers yet.</div></div><div class="panel hidden" id="customerDetails"><h2 id="customerDetailsTitle">Customer details</h2><div id="customerDetailsBody"></div><div class="actions"><button class="secondary" onclick="closeCustomerDetails()">Close details</button></div></div>
 </section>
 
 <section id="delivery" class="view hidden">
@@ -249,6 +249,41 @@ D.customers.push({id:Date.now(),n,p:$('cp').value.trim(),a:$('ca').value.trim(),
 ['cn','cp','ca'].forEach(x=>$(x).value='');
 save();alert('Customer added');
 }
+function editCustomer(customerId){
+if(currentRole!=='Admin')return alert('Only Admin can edit customers');
+let c=D.customers.find(x=>Number(x.id)===Number(customerId));
+if(!c)return alert('Customer not found');
+let n=prompt('Customer name:',c.n);if(n===null)return;n=n.trim();
+if(!n)return alert('Customer name is required');
+let p=prompt('Mobile number:',c.p||'');if(p===null)return;
+let a=prompt('Village / area:',c.a||'');if(a===null)return;
+let r=prompt('Regular cans:',Number(c.r||0));if(r===null)return;
+r=Number(r);if(!Number.isInteger(r)||r<0)return alert('Regular cans must be a whole number');
+c.n=n;c.p=p.trim();c.a=a.trim();c.r=r;
+save();showCustomerDetails(customerId);alert('Customer updated');
+}
+function deleteCustomer(customerId){
+if(currentRole!=='Admin')return alert('Only Admin can delete customers');
+let i=D.customers.findIndex(x=>Number(x.id)===Number(customerId));
+if(i<0)return alert('Customer not found');
+let c=D.customers[i];
+if(!confirm('Delete customer '+c.n+'? Existing delivery history will remain in reports.'))return;
+D.customers.splice(i,1);
+$('customerDetails').classList.add('hidden');
+save();alert('Customer deleted. Existing delivery records were kept.');
+}
+function showCustomerDetails(customerId){
+let c=D.customers.find(x=>Number(x.id)===Number(customerId));
+if(!c)return alert('Customer not found');
+let history=D.deliveries.filter(x=>x.customerId!=null?Number(x.customerId)===Number(customerId):x.n===c.n);
+let delivered=history.reduce((a,x)=>a+Number(x.f||0),0);
+let returned=history.reduce((a,x)=>a+Number(x.e||0),0);
+let paid=history.reduce((a,x)=>a+Number(x.p||0),0);
+$('customerDetailsTitle').textContent=c.n+' — Details';
+$('customerDetailsBody').innerHTML=`<p>Mobile: <b>${esc(c.p||'Not added')}</b></p><p>Area: <b>${esc(c.a||'Not added')}</b></p><p>Regular cans: <b>${Number(c.r||0)}</b></p><div class="cards"><div class="card"><div class="k">Full cans delivered</div><div class="metric">${delivered}</div></div><div class="card"><div class="k">Empty cans returned</div><div class="metric">${returned}</div></div><div class="card"><div class="k">Net cans with customer*</div><div class="metric">${delivered-returned}</div></div><div class="card"><div class="k">Payments recorded</div><div class="metric">₹${paid}</div></div></div><p class="note">*Net cans = full cans delivered minus empty cans returned. This is a can-count estimate, not a money balance.</p><h3>Delivery history</h3>${history.length?'<div class="table-wrap"><table><tr><th>Date</th><th>Full</th><th>Empty</th><th>Boy</th><th>₹</th></tr>'+history.map(x=>`<tr><td>${esc(x.date)}</td><td>${Number(x.f||0)}</td><td>${Number(x.e||0)}</td><td>${esc(x.b||'Admin')}</td><td>${Number(x.p||0)}</td></tr>`).join('')+'</table></div>':'<p class="empty">No delivery history found.</p>'}`;
+$('customerDetails').classList.remove('hidden');
+}
+function closeCustomerDetails(){$('customerDetails').classList.add('hidden')}
 function deliver(){
 let id=Number($('dc').value),f=Number($('df').value)||0,e=Number($('de').value)||0,p=Number($('dp').value)||0;
 if(!id)return alert('Select a customer');
@@ -258,7 +293,7 @@ let c=D.customers.find(x=>Number(x.id)===id);
 if(!c)return alert('Customer not found');
 D.del=Number(D.del||0)+f;
 D.ret=Number(D.ret||0)+e;
-D.deliveries.unshift({id:Date.now(),date:new Date().toLocaleString('en-IN'),n:c.n,f,e,b:currentRole,p});
+D.deliveries.unshift({id:Date.now(),customerId:c.id,date:new Date().toLocaleString('en-IN'),n:c.n,f,e,b:currentRole,p});
 $('df').value=1;$('de').value=$('dp').value=0;
 save();alert('Delivery saved');
 }
@@ -337,7 +372,7 @@ $('cm').textContent=D.customers.length;
 $('dm').textContent=D.deliveries.filter(x=>String(x.date||'').startsWith(today)).reduce((a,x)=>a+Number(x.f||0),0);
 $('sf').textContent=full();
 $('se').textContent=empty();
-$('cl').innerHTML=D.customers.length?'<div class="table-wrap"><table><tr><th>Name</th><th>Mobile</th><th>Area</th><th>Regular</th><th>Message</th></tr>'+D.customers.map(c=>`<tr><td>${esc(c.n)}</td><td>${esc(c.p)}</td><td>${esc(c.a)}</td><td>${Number(c.r||0)}</td><td><div class="row-actions"><button class="tiny" onclick="sendCustomerMessage(${Number(c.id)},'whatsapp')">WhatsApp</button><button class="tiny secondary" onclick="sendCustomerMessage(${Number(c.id)},'sms')">SMS / Text</button></div></td></tr>`).join('')+'</table></div>':'<div class="empty">No customers yet.</div>';
+$('cl').innerHTML=D.customers.length?'<div class="table-wrap"><table><tr><th>Name</th><th>Mobile</th><th>Area</th><th>Regular</th><th>Messages</th><th>Details / Manage</th></tr>'+D.customers.map(c=>`<tr><td>${esc(c.n)}</td><td>${esc(c.p)}</td><td>${esc(c.a)}</td><td>${Number(c.r||0)}</td><td><div class="row-actions"><button class="tiny" onclick="sendCustomerMessage(${Number(c.id)},'whatsapp')">WhatsApp</button><button class="tiny secondary" onclick="sendCustomerMessage(${Number(c.id)},'sms')">SMS / Text</button></div></td><td><div class="row-actions"><button class="tiny secondary" onclick="showCustomerDetails(${Number(c.id)})">History</button>${currentRole==='Admin'?`<button class="tiny secondary" onclick="editCustomer(${Number(c.id)})">Edit</button><button class="tiny danger" onclick="deleteCustomer(${Number(c.id)})">Delete</button>`:''}</div></td></tr>`).join('')+'</table></div>':'<div class="empty">No customers yet.</div>';
 let old=$('dc').value;
 $('dc').innerHTML='<option value="">Select customer</option>'+D.customers.map(c=>`<option value="${Number(c.id)}">${esc(c.n)}${c.a?' - '+esc(c.a):''}</option>`).join('');
 $('dc').value=old;
