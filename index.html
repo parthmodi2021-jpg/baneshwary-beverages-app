@@ -371,7 +371,7 @@ function downloadFullBackup(){
 }
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));  
 function enterApp(){  
-currentRole=$('role').value;  
+ 
 $('login').classList.add('hidden');  
 $('app').classList.remove('hidden');  
 $('welcome').textContent='Hello, '+(signedInLabel||currentRole);  
