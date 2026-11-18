@@ -357,7 +357,7 @@ const empty=()=>Number(D.oe||0)+Number(D.ae||0)+Number(D.ret||0);
 const save=()=>{localStorage.setItem(K,JSON.stringify(D));render()};  
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));  
 function enterApp(){  
-currentRole=$('role').value;  
+ 
 $('login').classList.add('hidden');  
 $('app').classList.remove('hidden');  
 $('welcome').textContent='Hello, '+(signedInLabel||currentRole);  
